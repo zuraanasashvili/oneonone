@@ -132,7 +132,10 @@
 <section class="card">
   <h2>History</h2>
   {% if sparkline %}
-  <div class="sparkline-wrap">{{ sparkline | safe }}</div>
+  <figure class="sparkline-wrap">
+    <figcaption class="spark-caption">Mood over the last {{ past_meetings | selectattr("mood") | list | length }} 1:1s</figcaption>
+    {{ sparkline | safe }}
+  </figure>
   {% endif %}
   {% if past_meetings %}
   <ul class="meeting-list">

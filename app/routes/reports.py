@@ -55,7 +55,7 @@ def detail(report_id: int):
         .order_by(Meeting.scheduled_at)
         .all()
     )
-    sparkline = mood_sparkline(list(reversed(past_meetings)))
+    sparkline = mood_sparkline(list(reversed(past_meetings)), width=520, height=56)
     return render_template(
         "reports/detail.html",
         report=report,

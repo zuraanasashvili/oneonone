@@ -4,12 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}oneonone{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
 <body>
   <header class="site-header">
     <div class="container">
-      <a class="brand" href="{{ url_for('dashboard.index') }}">oneonone</a>
+      <a class="brand" href="{{ url_for('dashboard.index') }}">1&nbsp;on&nbsp;1</a>
       <nav>
         <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
         <a href="{{ url_for('reports.new') }}" class="btn btn-small">+ Add report</a>
