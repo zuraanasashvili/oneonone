@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ report.name }} · oneonone{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ report.name }}</h1>
+    <p class="muted">{{ report.role }}{% if report.start_date %} · since {{ report.start_date.strftime("%b %Y") }}{% endif %}</p>
+  </div>
+  <div class="actions">
+    <a href="{{ url_for('reports.edit', report_id=report.id) }}" class="btn btn-small btn-quiet">Edit</a>
+    <form method="post" action="{{ url_for('reports.archive', report_id=report.id) }}">
+      <button class="btn btn-small btn-quiet" data-confirm="Archive {{ report.name }}? This pauses their series.">Archive</button>
+    </form>
+  </div>
+</div>
+
+<section class="card">
+  <h2>1:1 series</h2>
+  {% if series %}
+  <p>
+    Every <strong>{{ series.cadence }}</strong> on
+    <strong>{{ ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][series.day_of_week] }}</strong> at
+    <strong>{{ series.time_of_day.strftime("%H:%M") }}</strong> · {{ series.duration_minutes }} min
+  </p>
+  <form method="post" action="{{ url_for('reports.toggle_series', report_id=report.id) }}">
+    <button class="btn btn-small btn-quiet">Pause series</button>
+  </form>
+  {% else %}
+  <form method="post" action="{{ url_for('reports.save_series', report_id=report.id) }}" class="form form-inline">
+    <label>Cadence
+      <select name="cadence">
+        <option value="weekly">Weekly</option>
+        <option value="biweekly">Biweekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+    </label>
+    <label>Day
+      <select name="day_of_week">
+        {% for d in ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"] %}
+        <option value="{{ loop.index0 }}">{{ d }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Time <input type="time" name="time_of_day" value="10:00"></label>
+    <label>Minutes <input type="number" name="duration_minutes" value="30" min="5" max="240" step="5"></label>
+    <button type="submit" class="btn btn-small">Start series</button>
+  </form>
+  {% endif %}
+
+  {% if upcoming %}
+  <h3>Upcoming</h3>
+  <ul class="meeting-list">
+    {% for m in upcoming %}
+    <li><a href="{{ url_for('meetings.detail', meeting_id=m.id) }}">{{ m.scheduled_at.strftime("%a %b %d, %H:%M") }}</a>
+      <span class="badge">{{ m.agenda_items | length }} agenda</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Compensation</h2>
+  {% set current = report.current_salary %}
+  {% if current %}
+  <p class="comp-current">{{ report.salary_changes[-1].currency }} {{ "%0.2f"|format(current.amount_cents / 100) }} <span class="muted">since {{ current.effective_date.strftime("%b %d, %Y") }}</span></p>
+  {% endif %}
+
+  {% if report.salary_changes %}
+  <table>
+    <thead><tr><th>Effective</th><th>Amount</th><th>Type</th><th>Note</th><th></th></tr></thead>
+    <tbody>
+      {% for c in report.salary_changes | reverse %}
+      <tr>
+        <td>{{ c.effective_date.strftime("%b %d, %Y") }}</td>
+        <td>{{ c.currency }} {{ "%0.2f"|format(c.amount_cents / 100) }}</td>
+        <td>{{ c.change_type }}</td>
+        <td class="muted">{{ c.note }}</td>
+        <td>
+          <form method="post" action="{{ url_for('reports.delete_salary', report_id=report.id, change_id=c.id) }}">
+            <button class="btn btn-small btn-quiet" data-confirm="Delete this salary entry?">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('reports.add_salary', report_id=report.id) }}" class="form form-inline">
+    <label>Effective <input type="date" name="effective_date" required></label>
+    <label>Amount <input type="number" name="amount" min="0" step="0.01" required placeholder="120000"></label>
+    <label>Currency <input type="text" name="currency" value="USD" maxlength="3" size="4"></label>
+    <label>Type
+      <select name="change_type">
+        <option value="hire">Hire</option>
+        <option value="raise" selected>Raise</option>
+        <option value="promotion">Promotion</option>
+        <option value="adjustment">Adjustment</option>
+      </select>
+    </label>
+    <label>Note <input type="text" name="note" placeholder="optional"></label>
+    <button type="submit" class="btn btn-small">Add</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Open action items</h2>
+  {% if open_items %}
+  <ul class="item-list">
+    {% for item in open_items %}
+    <li>
+      <span>{{ item.text }} <span class="badge">{{ item.owner }}</span>
+        {% if item.due_date %}<span class="muted">due {{ item.due_date.strftime("%b %d") }}</span>{% endif %}</span>
+      <span class="actions">
+        <form method="post" action="{{ url_for('meetings.set_action_item_status', item_id=item.id, status='done') }}"><button class="btn btn-small">Done</button></form>
+        <form method="post" action="{{ url_for('meetings.set_action_item_status', item_id=item.id, status='dropped') }}"><button class="btn btn-small btn-quiet">Drop</button></form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No open action items.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('meetings.add_action_item_for_report', report_id=report.id) }}" class="form form-inline">
+    <input type="text" name="text" required placeholder="New action item…" class="grow">
+    <select name="owner"><option value="manager">Me</option><option value="report">{{ report.name }}</option></select>
+    <input type="date" name="due_date">
+    <button type="submit" class="btn btn-small">Add</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>History</h2>
+  {% if sparkline %}
+  <div class="sparkline-wrap">{{ sparkline | safe }}</div>
+  {% endif %}
+  {% if past_meetings %}
+  <ul class="meeting-list">
+    {% for m in past_meetings %}
+    <li>
+      <a href="{{ url_for('meetings.detail', meeting_id=m.id) }}">{{ m.scheduled_at.strftime("%a %b %d, %Y") }}</a>
+      {% if m.mood %}<span class="mood mood-{{ m.mood }}">{{ ["","rough","tense","ok","good","great"][m.mood] }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No completed 1:1s yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

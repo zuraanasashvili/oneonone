@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}1:1 with {{ meeting.report.name }} · oneonone{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>1:1 with <a href="{{ url_for('reports.detail', report_id=meeting.report.id) }}">{{ meeting.report.name }}</a></h1>
+    <p class="muted">
+      {{ meeting.scheduled_at.strftime("%A %b %d, %Y · %H:%M") }} · {{ meeting.series.duration_minutes }} min ·
+      <span class="badge">{{ meeting.status }}</span>
+    </p>
+  </div>
+  {% if meeting.status == "scheduled" %}
+  <form method="post" action="{{ url_for('meetings.cancel', meeting_id=meeting.id) }}">
+    <button class="btn btn-small btn-quiet" data-confirm="Cancel this meeting? The series will continue.">Cancel meeting</button>
+  </form>
+  {% endif %}
+</div>
+
+<section class="card">
+  <h2>Agenda</h2>
+  {% if meeting.agenda_items %}
+  <ul class="item-list">
+    {% for item in meeting.agenda_items %}
+    <li>
+      <span class="{% if item.covered %}covered{% endif %}">
+        <form method="post" action="{{ url_for('meetings.toggle_agenda', item_id=item.id) }}" class="inline">
+          <button class="check" title="Toggle covered">{{ "✓" if item.covered else "○" }}</button>
+        </form>
+        {{ item.text }} <span class="badge">{{ item.raised_by }}</span>
+      </span>
+      <form method="post" action="{{ url_for('meetings.delete_agenda', item_id=item.id) }}" class="inline">
+        <button class="btn btn-small btn-quiet" data-confirm="Remove this agenda item?">Remove</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No agenda items yet.</p>
+  {% endif %}
+  {% if meeting.status == "scheduled" %}
+  <form method="post" action="{{ url_for('meetings.add_agenda', meeting_id=meeting.id) }}" class="form form-inline">
+    <input type="text" name="text" required placeholder="Add talking point…" class="grow">
+    <select name="raised_by"><option value="manager">Me</option><option value="report">{{ meeting.report.name }}</option></select>
+    <button type="submit" class="btn btn-small">Add</button>
+  </form>
+  {% endif %}
+</section>
+
+{% if open_items %}
+<section class="card">
+  <h2>Open action items <span class="muted">(carried over)</span></h2>
+  <ul class="item-list">
+    {% for item in open_items %}
+    <li>
+      <span>{{ item.text }} <span class="badge">{{ item.owner }}</span>
+        {% if item.due_date %}<span class="muted">due {{ item.due_date.strftime("%b %d") }}</span>{% endif %}</span>
+      <span class="actions">
+        <form method="post" action="{{ url_for('meetings.set_action_item_status', item_id=item.id, status='done') }}"><button class="btn btn-small">Done</button></form>
+        <form method="post" action="{{ url_for('meetings.set_action_item_status', item_id=item.id, status='dropped') }}"><button class="btn btn-small btn-quiet">Drop</button></form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if meeting.status == "scheduled" %}
+<section class="card">
+  <h2>New action item</h2>
+  <form method="post" action="{{ url_for('meetings.add_action_item', meeting_id=meeting.id) }}" class="form form-inline">
+    <input type="text" name="text" required placeholder="Follow-up…" class="grow">
+    <select name="owner"><option value="manager">Me</option><option value="report">{{ meeting.report.name }}</option></select>
+    <input type="date" name="due_date">
+    <button type="submit" class="btn btn-small">Add</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="card">
+  {% if meeting.status == "scheduled" %}
+  <h2>Notes &amp; completion</h2>
+  <form method="post" action="{{ url_for('meetings.complete', meeting_id=meeting.id) }}" class="form">
+    <label>Notes
+      <textarea name="notes" rows="8" data-autoresize placeholder="What was discussed…">{{ meeting.notes }}</textarea>
+    </label>
+    <fieldset class="mood-picker">
+      <legend>How was it?</legend>
+      {% for value, label in [(1,"rough"),(2,"tense"),(3,"ok"),(4,"good"),(5,"great")] %}
+      <label class="mood mood-{{ value }}">
+        <input type="radio" name="mood" value="{{ value }}" {% if meeting.mood == value %}checked{% endif %}> {{ label }}
+      </label>
+      {% endfor %}
+    </fieldset>
+    <div class="form-actions">
+      <button type="submit" class="btn">Complete meeting</button>
+      <button type="submit" formaction="{{ url_for('meetings.save_notes', meeting_id=meeting.id) }}" class="btn btn-quiet">Save notes only</button>
+    </div>
+  </form>
+  {% else %}
+  <h2>Notes</h2>
+  {% if meeting.notes %}<p class="notes">{{ meeting.notes | replace("\n", "<br>") | safe }}</p>
+  {% else %}<p class="muted">No notes.</p>{% endif %}
+  {% if meeting.mood %}<p>Mood: <span class="mood mood-{{ meeting.mood }}">{{ ["","rough","tense","ok","good","great"][meeting.mood] }}</span></p>{% endif %}
+  {% endif %}
+</section>
+{% endblock %}

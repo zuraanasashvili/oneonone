@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit" if report else "New" }} report · oneonone{% endblock %}
+{% block content %}
+<h1>{{ "Edit " ~ report.name if report else "Add a report" }}</h1>
+
+<form method="post" action="{{ url_for('reports.update', report_id=report.id) if report else url_for('reports.create') }}" class="card form">
+  <label>Name
+    <input type="text" name="name" required value="{{ report.name if report else '' }}">
+  </label>
+  <label>Role
+    <input type="text" name="role" value="{{ report.role if report else '' }}" placeholder="Senior Engineer">
+  </label>
+  <label>Start date
+    <input type="date" name="start_date" value="{{ report.start_date.isoformat() if report and report.start_date else '' }}">
+  </label>
+  <div class="form-actions">
+    <button type="submit" class="btn">{{ "Save" if report else "Add report" }}</button>
+    <a href="{{ url_for('reports.detail', report_id=report.id) if report else url_for('dashboard.index') }}" class="btn btn-quiet">Cancel</a>
+  </div>
+</form>
+{% endblock %}

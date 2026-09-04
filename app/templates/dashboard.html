@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · oneonone{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+{% if past_due %}
+<section class="card">
+  <h2>Waiting on you</h2>
+  <p class="muted">These meetings have passed — complete or cancel them.</p>
+  <ul class="meeting-list">
+    {% for m in past_due %}
+    <li>
+      <a href="{{ url_for('meetings.detail', meeting_id=m.id) }}">
+        <strong>{{ m.report.name }}</strong> — {{ m.scheduled_at.strftime("%a %b %d, %H:%M") }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Upcoming 1:1s <span class="muted">(next 7 days)</span></h2>
+  {% if upcoming %}
+  <ul class="meeting-list">
+    {% for m in upcoming %}
+    <li>
+      <a href="{{ url_for('meetings.detail', meeting_id=m.id) }}">
+        <strong>{{ m.report.name }}</strong> — {{ m.scheduled_at.strftime("%a %b %d, %H:%M") }}
+      </a>
+      <span class="badge">{{ m.agenda_items | length }} agenda</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nothing scheduled this week.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Open action items</h2>
+  {% if open_items %}
+  <ul class="item-list">
+    {% for item in open_items %}
+    <li class="{% if item.due_date and item.due_date < today %}overdue{% endif %}">
+      <span>
+        <strong>{{ item.report.name }}</strong> · {{ item.text }}
+        <span class="badge">{{ item.owner }}</span>
+        {% if item.due_date %}<span class="muted">due {{ item.due_date.strftime("%b %d") }}</span>{% endif %}
+      </span>
+      <span class="actions">
+        <form method="post" action="{{ url_for('meetings.set_action_item_status', item_id=item.id, status='done') }}"><button class="btn btn-small">Done</button></form>
+        <form method="post" action="{{ url_for('meetings.set_action_item_status', item_id=item.id, status='dropped') }}"><button class="btn btn-small btn-quiet">Drop</button></form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">All clear — no open action items.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Reports</h2>
+  {% if reports %}
+  <table>
+    <thead><tr><th>Name</th><th>Role</th><th>Last 1:1</th><th></th></tr></thead>
+    <tbody>
+      {% for report, days_since in reports %}
+      <tr>
+        <td><a href="{{ url_for('reports.detail', report_id=report.id) }}"><strong>{{ report.name }}</strong></a></td>
+        <td>{{ report.role }}</td>
+        <td>
+          {% if days_since is none %}
+            <span class="muted">never</span>
+          {% elif days_since > 21 %}
+            <span class="stale">{{ days_since }} days ago</span>
+          {% else %}
+            {{ days_since }} days ago
+          {% endif %}
+        </td>
+        <td class="actions">
+          {% if report.active_series %}
+          <form method="post" action="{{ url_for('reports.toggle_series', report_id=report.id) }}">
+            <button class="btn btn-small btn-quiet">Pause series</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No reports yet. <a href="{{ url_for('reports.new') }}">Add your first report</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}
