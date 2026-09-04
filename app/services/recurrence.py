@@ -7,7 +7,8 @@ instance is created when:
 - a series is created or reactivated.
 """
 
-from datetime import datetime, time, timedelta
+import calendar
+from datetime import datetime, timedelta
 
 from app.extensions import db
 from app.models import Meeting, Series, utcnow
@@ -38,11 +39,8 @@ def advance(series: Series, previous: datetime) -> datetime:
         year = previous.year
         if month > 12:
             month, year = 1, year + 1
-        day = min(previous.day, _days_in_month(year, month))
-        return datetime.combine(
-            datetime(year, month, day).date(),
-            previous.time() if isinstance(previous, datetime) else time(10, 0),
-        )
+        day = min(previous.day, calendar.monthrange(year, month)[1])
+        return datetime.combine(datetime(year, month, day).date(), previous.time())
     return previous + CADENCE_DELTAS.get(series.cadence, timedelta(weeks=1))
 
 
@@ -86,9 +84,3 @@ def ensure_next_meeting(series: Series, now: datetime | None = None) -> Meeting 
     db.session.add(meeting)
     db.session.flush()
     return meeting
-
-
-def _days_in_month(year: int, month: int) -> int:
-    if month == 12:
-        return 31
-    return (datetime(year, month + 1, 1) - datetime(year, month, 1)).days
