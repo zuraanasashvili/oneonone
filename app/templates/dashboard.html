@@ -28,7 +28,6 @@
       <a href="{{ url_for('meetings.detail', meeting_id=m.id) }}">
         <strong>{{ m.report.name }}</strong> — {{ m.scheduled_at.strftime("%a %b %d, %H:%M") }}
       </a>
-      <span class="badge">{{ m.agenda_items | length }} agenda</span>
     </li>
     {% endfor %}
   </ul>
@@ -46,6 +45,7 @@
       <span>
         <strong>{{ item.report.name }}</strong> · {{ item.text }}
         <span class="badge">{{ item.owner }}</span>
+        {% if item.meeting_id %}<a href="{{ url_for('meetings.detail', meeting_id=item.meeting_id) }}" class="muted">from 1:1</a>{% endif %}
         {% if item.due_date %}<span class="muted">due {{ item.due_date.strftime("%b %d") }}</span>{% endif %}
       </span>
       <span class="actions">
@@ -80,9 +80,10 @@
           {% endif %}
         </td>
         <td class="actions">
+          <a href="{{ url_for('reports.detail', report_id=report.id) }}#schedule" class="btn btn-small">Schedule 1:1</a>
           {% if report.active_series %}
           <form method="post" action="{{ url_for('reports.toggle_series', report_id=report.id) }}">
-            <button class="btn btn-small btn-quiet">Pause series</button>
+            <button class="btn btn-small btn-quiet">Pause</button>
           </form>
           {% endif %}
         </td>

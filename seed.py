@@ -11,12 +11,12 @@ from datetime import date, timedelta
 
 from app import create_app
 from app.extensions import db
-from app.models import ActionItem, AgendaItem, Meeting, Report, SalaryChange, Series, utcnow
+from app.models import ActionItem, Meeting, Report, SalaryChange, Series, utcnow
 from app.services.recurrence import ensure_next_meeting
 
 PEOPLE = [
     (
-        "Ana Petrova",
+        "Employee 1",
         "Senior Engineer",
         date(2023, 3, 13),
         2,
@@ -28,7 +28,7 @@ PEOPLE = [
         ],
     ),
     (
-        "Ben Okafor",
+        "Employee 2",
         "Engineer",
         date(2024, 6, 3),
         1,
@@ -39,7 +39,7 @@ PEOPLE = [
         ],
     ),
     (
-        "Carla Mendes",
+        "Employee 3",
         "Staff Engineer",
         date(2022, 1, 10),
         3,
@@ -51,7 +51,7 @@ PEOPLE = [
         ],
     ),
     (
-        "David Kim",
+        "Employee 4",
         "Junior Engineer",
         date(2025, 2, 17),
         4,
@@ -61,7 +61,7 @@ PEOPLE = [
         ],
     ),
     (
-        "Elena Rossi",
+        "Employee 5",
         "Engineer",
         date(2023, 9, 4),
         0,
@@ -153,11 +153,12 @@ def seed(fresh: bool = False) -> None:
                 db.session.flush()
                 for topic in rng.sample(TOPICS, k=rng.randint(1, 3)):
                     db.session.add(
-                        AgendaItem(
+                        ActionItem(
+                            report_id=report.id,
                             meeting_id=meeting.id,
                             text=topic,
-                            raised_by=rng.choice(["manager", "report"]),
-                            covered=True,
+                            owner=rng.choice(["manager", "report"]),
+                            status="done",
                         )
                     )
                 if rng.random() < 0.5:
@@ -180,16 +181,8 @@ def seed(fresh: bool = False) -> None:
                 scheduled += timedelta(days=step)
 
             # One upcoming meeting (lazy recurrence from the real "now").
-            upcoming = ensure_next_meeting(series, now)
+            ensure_next_meeting(series, now)
             db.session.flush()
-            for topic in rng.sample(TOPICS, k=rng.randint(1, 2)):
-                db.session.add(
-                    AgendaItem(
-                        meeting_id=upcoming.id,
-                        text=topic,
-                        raised_by=rng.choice(["manager", "report"]),
-                    )
-                )
 
             # A couple of currently-open action items.
             for text, owner in rng.sample(

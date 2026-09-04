@@ -5,8 +5,9 @@
   <div>
     <h1>1:1 with <a href="{{ url_for('reports.detail', report_id=meeting.report.id) }}">{{ meeting.report.name }}</a></h1>
     <p class="muted">
-      {{ meeting.scheduled_at.strftime("%A %b %d, %Y · %H:%M") }} · {{ meeting.series.duration_minutes }} min ·
-      <span class="badge">{{ meeting.status }}</span>
+      {{ meeting.scheduled_at.strftime("%A %b %d, %Y · %H:%M") }}
+      {% if meeting.series %} · {{ meeting.series.duration_minutes }} min · <span class="badge">recurring</span>{% else %} · <span class="badge">one-off</span>{% endif %}
+      · <span class="badge">{{ meeting.status }}</span>
     </p>
   </div>
   {% if meeting.status == "scheduled" %}
@@ -17,38 +18,8 @@
 </div>
 
 <section class="card">
-  <h2>Agenda</h2>
-  {% if meeting.agenda_items %}
-  <ul class="item-list">
-    {% for item in meeting.agenda_items %}
-    <li>
-      <span class="{% if item.covered %}covered{% endif %}">
-        <form method="post" action="{{ url_for('meetings.toggle_agenda', item_id=item.id) }}" class="inline">
-          <button class="check" title="Toggle covered">{{ "✓" if item.covered else "○" }}</button>
-        </form>
-        {{ item.text }} <span class="badge">{{ item.raised_by }}</span>
-      </span>
-      <form method="post" action="{{ url_for('meetings.delete_agenda', item_id=item.id) }}" class="inline">
-        <button class="btn btn-small btn-quiet" data-confirm="Remove this agenda item?">Remove</button>
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="muted">No agenda items yet.</p>
-  {% endif %}
-  {% if meeting.status == "scheduled" %}
-  <form method="post" action="{{ url_for('meetings.add_agenda', meeting_id=meeting.id) }}" class="form form-inline">
-    <input type="text" name="text" required placeholder="Add talking point…" class="grow">
-    <select name="raised_by"><option value="manager">Me</option><option value="report">{{ meeting.report.name }}</option></select>
-    <button type="submit" class="btn btn-small">Add</button>
-  </form>
-  {% endif %}
-</section>
-
-{% if open_items %}
-<section class="card">
-  <h2>Open action items <span class="muted">(carried over)</span></h2>
+  <h2>Action items</h2>
+  {% if open_items %}
   <ul class="item-list">
     {% for item in open_items %}
     <li>
@@ -61,20 +32,18 @@
     </li>
     {% endfor %}
   </ul>
-</section>
-{% endif %}
-
-{% if meeting.status == "scheduled" %}
-<section class="card">
-  <h2>New action item</h2>
+  {% else %}
+  <p class="muted">No open action items.</p>
+  {% endif %}
+  {% if meeting.status == "scheduled" %}
   <form method="post" action="{{ url_for('meetings.add_action_item', meeting_id=meeting.id) }}" class="form form-inline">
-    <input type="text" name="text" required placeholder="Follow-up…" class="grow">
+    <input type="text" name="text" required placeholder="Add talking point or follow-up…" class="grow">
     <select name="owner"><option value="manager">Me</option><option value="report">{{ meeting.report.name }}</option></select>
     <input type="date" name="due_date">
     <button type="submit" class="btn btn-small">Add</button>
   </form>
+  {% endif %}
 </section>
-{% endif %}
 
 <section class="card">
   {% if meeting.status == "scheduled" %}

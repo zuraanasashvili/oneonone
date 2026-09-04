@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Reports · 1 on 1{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Reports</h1>
+  <a href="{{ url_for('reports.new') }}" class="btn btn-small">+ Add report</a>
+</div>
+
+<section class="card">
+{% if rows %}
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Role</th><th>Cadence</th><th>Next 1:1</th><th>Last 1:1</th><th>Salary</th><th>Open</th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      {% set report = row.report %}
+      <tr>
+        <td><a href="{{ url_for('reports.detail', report_id=report.id) }}"><strong>{{ report.name }}</strong></a></td>
+        <td class="muted">{{ report.role or "—" }}</td>
+        <td>{% if row.series %}{{ row.series.cadence }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>
+          {% if row.next %}
+            <a href="{{ url_for('meetings.detail', meeting_id=row.next.id) }}">{{ row.next.scheduled_at.strftime("%b %d, %H:%M") }}</a>
+          {% else %}
+            <a href="{{ url_for('reports.detail', report_id=report.id) }}#schedule" class="muted">schedule</a>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.days_since is none %}<span class="muted">never</span>
+          {% elif row.days_since > 21 %}<span class="stale">{{ row.days_since }}d ago</span>
+          {% else %}{{ row.days_since }}d ago{% endif %}
+        </td>
+        <td>
+          {% set c = report.current_salary %}
+          {% if c %}{{ report.salary_changes[-1].currency }} {{ "%0.0f"|format(c.amount_cents / 100) }}{% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td>{% if row.open_count %}<span class="badge">{{ row.open_count }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="muted">No reports yet. <a href="{{ url_for('reports.new') }}">Add your first report</a>.</p>
+{% endif %}
+</section>
+{% endblock %}

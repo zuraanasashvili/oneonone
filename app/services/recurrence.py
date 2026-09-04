@@ -44,13 +44,13 @@ def advance(series: Series, previous: datetime) -> datetime:
     return previous + CADENCE_DELTAS.get(series.cadence, timedelta(weeks=1))
 
 
-def ensure_next_meeting(series: Series, now: datetime | None = None) -> Meeting | None:
+def ensure_next_meeting(series: Series | None, now: datetime | None = None) -> Meeting | None:
     """Create the series' next scheduled meeting if none is upcoming.
 
     Returns the upcoming meeting (existing or newly created), or None if the
-    series is inactive.
+    series is absent (one-off meeting) or inactive.
     """
-    if not series.active:
+    if series is None or not series.active:
         return None
     now = now or utcnow()
 

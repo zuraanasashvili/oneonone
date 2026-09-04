@@ -1,12 +1,12 @@
-"""Meeting page, agenda management, action items, and completion flow."""
+"""Meeting page, action items, and completion flow."""
 
 from datetime import date, datetime
 
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 
 from app.extensions import db
-from app.models import ActionItem, AgendaItem, Meeting, utcnow
-from app.services.carryover import copy_uncovered_agenda, open_action_items
+from app.models import ActionItem, Meeting, utcnow
+from app.services.carryover import open_action_items
 from app.services.recurrence import ensure_next_meeting
 
 bp = Blueprint("meetings", __name__)
@@ -28,43 +28,6 @@ def detail(meeting_id: int):
         open_items=open_action_items(meeting.report_id),
         today=date.today(),
     )
-
-
-@bp.post("/meetings/<int:meeting_id>/agenda")
-def add_agenda(meeting_id: int):
-    meeting = _get_meeting(meeting_id)
-    text = request.form.get("text", "").strip()
-    if text:
-        item = AgendaItem(
-            meeting_id=meeting.id,
-            text=text,
-            raised_by=request.form.get("raised_by", "manager"),
-            sort_order=len(meeting.agenda_items),
-        )
-        db.session.add(item)
-        db.session.commit()
-    return redirect(url_for("meetings.detail", meeting_id=meeting.id))
-
-
-@bp.post("/agenda/<int:item_id>/toggle")
-def toggle_agenda(item_id: int):
-    item = db.session.get(AgendaItem, item_id)
-    if item is None:
-        abort(404)
-    item.covered = not item.covered
-    db.session.commit()
-    return redirect(url_for("meetings.detail", meeting_id=item.meeting_id))
-
-
-@bp.post("/agenda/<int:item_id>/delete")
-def delete_agenda(item_id: int):
-    item = db.session.get(AgendaItem, item_id)
-    if item is None:
-        abort(404)
-    meeting_id = item.meeting_id
-    db.session.delete(item)
-    db.session.commit()
-    return redirect(url_for("meetings.detail", meeting_id=meeting_id))
 
 
 @bp.post("/meetings/<int:meeting_id>/notes")
@@ -135,10 +98,9 @@ def complete(meeting_id: int):
     meeting.mood = int(mood) if mood else None
     db.session.flush()
 
-    # Carry-over: uncovered agenda items move to the next meeting.
-    next_meeting = ensure_next_meeting(meeting.series)
-    if next_meeting and next_meeting.id != meeting.id:
-        copy_uncovered_agenda(meeting, next_meeting)
+    # Recurring series: materialize the next meeting. Open action items carry
+    # forward automatically (queried per-report), so nothing is copied.
+    ensure_next_meeting(meeting.series)
 
     db.session.commit()
     return redirect(url_for("reports.detail", report_id=meeting.report_id))

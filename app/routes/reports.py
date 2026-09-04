@@ -5,7 +5,7 @@ from datetime import date, datetime
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 
 from app.extensions import db
-from app.models import Meeting, Report, SalaryChange, Series
+from app.models import Meeting, Report, SalaryChange, Series, utcnow
 from app.services.carryover import open_action_items
 from app.services.charts import mood_sparkline
 from app.services.recurrence import ensure_next_meeting
@@ -18,6 +18,32 @@ def _get_report(report_id: int) -> Report:
     if report is None:
         abort(404)
     return report
+
+
+@bp.get("/")
+def index():
+    now = utcnow()
+    rows = []
+    for report in Report.query.filter_by(archived=False).order_by(Report.name):
+        series = report.active_series
+        if series:
+            ensure_next_meeting(series, now)
+        next_meeting = (
+            Meeting.query.filter_by(report_id=report.id, status="scheduled")
+            .filter(Meeting.scheduled_at > now)
+            .order_by(Meeting.scheduled_at)
+            .first()
+        )
+        rows.append(
+            {
+                "report": report,
+                "series": series,
+                "next": next_meeting,
+                "days_since": report.days_since_last_1on1,
+                "open_count": len(open_action_items(report.id)),
+            }
+        )
+    return render_template("reports/list.html", rows=rows)
 
 
 @bp.get("/new")
@@ -92,23 +118,35 @@ def archive(report_id: int):
     return redirect(url_for("dashboard.index"))
 
 
-@bp.post("/<int:report_id>/series")
-def save_series(report_id: int):
+@bp.post("/<int:report_id>/schedule")
+def schedule(report_id: int):
+    """Schedule the next 1:1: a one-off meeting, optionally set to repeat."""
     report = _get_report(report_id)
-    series = report.active_series
-    if series is None:
-        series = Series(report_id=report.id)
-        db.session.add(series)
+    when = datetime.strptime(
+        f"{request.form['date']} {request.form.get('time') or '10:00'}", "%Y-%m-%d %H:%M"
+    )
+    repeat = request.form.get("repeat", "none")
 
-    series.cadence = request.form.get("cadence", "weekly")
-    series.day_of_week = int(request.form.get("day_of_week", 0))
-    series.time_of_day = datetime.strptime(request.form.get("time_of_day", "10:00"), "%H:%M").time()
-    series.duration_minutes = int(request.form.get("duration_minutes", 30))
-    series.active = True
-    db.session.flush()
-    ensure_next_meeting(series)
+    series = None
+    if repeat in Series.CADENCES:
+        series = report.active_series or Series(report_id=report.id)
+        series.cadence = repeat
+        series.day_of_week = when.weekday()
+        series.time_of_day = when.time()
+        series.duration_minutes = int(request.form.get("duration_minutes") or 30)
+        series.active = True
+        db.session.add(series)
+        db.session.flush()
+
+    meeting = Meeting(
+        report_id=report.id,
+        series_id=series.id if series else None,
+        scheduled_at=when,
+        status="scheduled",
+    )
+    db.session.add(meeting)
     db.session.commit()
-    return redirect(url_for("reports.detail", report_id=report.id))
+    return redirect(url_for("meetings.detail", meeting_id=meeting.id))
 
 
 @bp.post("/<int:report_id>/series/toggle")

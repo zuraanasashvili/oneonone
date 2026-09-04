@@ -1,4 +1,4 @@
-from app.models import ActionItem, AgendaItem, Meeting, Report, utcnow
+from app.models import ActionItem, Meeting, Report, utcnow
 
 
 def test_dashboard_empty(client):
@@ -21,19 +21,26 @@ def test_report_detail(client, report):
     assert b"Test Person" in resp.data
 
 
-def test_create_series_materializes_meeting(client, report):
+def test_schedule_recurring_creates_meeting_and_series(client, report):
     resp = client.post(
-        f"/reports/{report.id}/series",
-        data={
-            "cadence": "weekly",
-            "day_of_week": "2",
-            "time_of_day": "14:00",
-            "duration_minutes": "30",
-        },
+        f"/reports/{report.id}/schedule",
+        data={"date": "2026-09-16", "time": "14:00", "repeat": "weekly", "duration_minutes": "30"},
     )
     assert resp.status_code == 302
     meeting = Meeting.query.filter_by(report_id=report.id).one()
     assert meeting.status == "scheduled"
+    assert meeting.series_id is not None
+    assert meeting.series.cadence == "weekly"
+
+
+def test_schedule_one_off_has_no_series(client, report):
+    resp = client.post(
+        f"/reports/{report.id}/schedule",
+        data={"date": "2026-09-16", "time": "14:00", "repeat": "none"},
+    )
+    assert resp.status_code == 302
+    meeting = Meeting.query.filter_by(report_id=report.id).one()
+    assert meeting.series_id is None
 
 
 def test_meeting_completion_flow(client, db, series):
@@ -44,13 +51,6 @@ def test_meeting_completion_flow(client, db, series):
         status="scheduled",
     )
     db.session.add(meeting)
-    db.session.flush()
-    db.session.add_all(
-        [
-            AgendaItem(meeting_id=meeting.id, text="done topic", covered=True),
-            AgendaItem(meeting_id=meeting.id, text="missed topic", covered=False),
-        ]
-    )
     db.session.commit()
 
     resp = client.post(
@@ -63,12 +63,13 @@ def test_meeting_completion_flow(client, db, series):
     assert meeting.mood == 4
     assert meeting.notes == "went well"
 
+    # Completing a recurring meeting materializes the next scheduled one.
     next_meeting = (
         Meeting.query.filter_by(series_id=series.id, status="scheduled")
         .filter(Meeting.id != meeting.id)
         .one()
     )
-    assert [i.text for i in next_meeting.agenda_items] == ["missed topic"]
+    assert next_meeting.scheduled_at > meeting.scheduled_at
 
 
 def test_action_item_status_change(client, db, report):

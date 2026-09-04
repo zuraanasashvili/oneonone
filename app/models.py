@@ -47,6 +47,16 @@ class Report(db.Model):
     def active_series(self) -> "Series | None":
         return next((s for s in self.series if s.active), None)
 
+    @property
+    def days_since_last_1on1(self) -> int | None:
+        """Days since the most recent completed 1:1, or None if never met."""
+        last = (
+            Meeting.query.filter_by(report_id=self.id, status="done")
+            .order_by(Meeting.scheduled_at.desc())
+            .first()
+        )
+        return (date.today() - last.scheduled_at.date()).days if last else None
+
 
 class Series(db.Model):
     """A recurring 1:1 series with a report (one active series per report)."""
@@ -75,7 +85,7 @@ class Meeting(db.Model):
     STATUSES = ("scheduled", "done", "cancelled")
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    series_id: Mapped[int] = mapped_column(ForeignKey("series.id"))
+    series_id: Mapped[int | None] = mapped_column(ForeignKey("series.id"))  # null = one-off
     report_id: Mapped[int] = mapped_column(ForeignKey("report.id"))
     scheduled_at: Mapped[datetime]
     status: Mapped[str] = mapped_column(default="scheduled")
@@ -85,24 +95,6 @@ class Meeting(db.Model):
 
     series: Mapped[Series] = relationship(back_populates="meetings")
     report: Mapped[Report] = relationship(back_populates="meetings")
-    agenda_items: Mapped[list["AgendaItem"]] = relationship(
-        back_populates="meeting", order_by="AgendaItem.sort_order", cascade="all, delete-orphan"
-    )
-
-
-class AgendaItem(db.Model):
-    """A talking point on a specific meeting's agenda."""
-
-    __tablename__ = "agenda_item"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    meeting_id: Mapped[int] = mapped_column(ForeignKey("meeting.id"))
-    text: Mapped[str]
-    raised_by: Mapped[str] = mapped_column(default="manager")  # manager | report
-    covered: Mapped[bool] = mapped_column(default=False)
-    sort_order: Mapped[int] = mapped_column(default=0)
-
-    meeting: Mapped[Meeting] = relationship(back_populates="agenda_items")
 
 
 class ActionItem(db.Model):
